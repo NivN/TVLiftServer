@@ -3,8 +3,8 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 
-const char* ssid = "****";
-const char* password = "****";
+char ssid[100] = "****";
+char password[100] = "****";
 
 ESP8266WebServer server(80);
 
@@ -23,6 +23,8 @@ void handleRoot() {
 }
 
 void handleTvUp() {
+  digitalWrite(LED_RELAY_BACKLIGHT, 1);
+
   digitalWrite(LED_RELAY_BACKLIGHT, 0);
   changeTV(TV_UP_WRITE);
   server.send(200, "text/plain", "up");
@@ -36,6 +38,7 @@ void handleTvDown() {
   changeTV(TV_DOWN_WRITE);
   server.send(200, "text/plain", "down");
   powerEngine();
+  digitalWrite(LED_RELAY_BACKLIGHT, 0);
 }
 
 void changeTV(int direction) {
@@ -64,17 +67,29 @@ void handleNotFound(){
   server.send(404, "text/plain", "File Not Found");
 }
 
+void changeWifiPass(){
+  server.arg(0).toCharArray(ssid,100);
+  server.arg(1).toCharArray(password,100);
+  setup();
+}
+
 void setup(void){
   setRelays();
  
   Serial.begin(115200);
   WiFi.begin(ssid, password);
   Serial.println("");
-
+  int noConnTime = 0;
+  
   // Wait for connection
-  while (WiFi.status() != WL_CONNECTED) {
+  while ((WiFi.status() != WL_CONNECTED) && (noConnTime < 20000)) {
     delay(500);
+    noConnTime += 500;
     Serial.print(WiFi.status());
+
+    if (noConnTime > 20000) {
+      WiFi.softAP("TheTreasureIsExposed", "123456");
+    }
   }
   Serial.println("");
   Serial.print("Connected to ");
@@ -91,7 +106,8 @@ void setup(void){
   server.on("/tvDown", handleTvDown);
   server.on("/light", handleLights);
   server.on("/setEngineWorkTime", setEngineWorkTime);
- 
+  server.on("/changeWifiPass", setEngineWorkTime);
+
   server.onNotFound(handleNotFound);
   server.begin();
   Serial.println("HTTP server started");
@@ -103,15 +119,14 @@ void loop(void){
 
 void setRelays(){
    pinMode(ENGINE_RELAY_1, OUTPUT);
- pinMode(ENGINE_RELAY_2, OUTPUT);
- pinMode(ENGINE_CUT_OFF_RELAY, OUTPUT);
- pinMode(LED_RELAY_BACKLIGHT, OUTPUT);
- pinMode(LED_RELAY_FORELIGHT, OUTPUT);
-
- digitalWrite(ENGINE_RELAY_1, 1);
- digitalWrite(ENGINE_RELAY_2, 1);
- digitalWrite(ENGINE_CUT_OFF_RELAY, 1);
- digitalWrite(LED_RELAY_BACKLIGHT, 1);
- digitalWrite(LED_RELAY_FORELIGHT, 0);
+   pinMode(ENGINE_RELAY_2, OUTPUT);
+   pinMode(ENGINE_CUT_OFF_RELAY, OUTPUT);
+   pinMode(LED_RELAY_BACKLIGHT, OUTPUT);
+   pinMode(LED_RELAY_FORELIGHT, OUTPUT);
+    
+   digitalWrite(ENGINE_RELAY_1, 1);
+   digitalWrite(ENGINE_RELAY_2, 1);
+   digitalWrite(ENGINE_CUT_OFF_RELAY, 1);
+   digitalWrite(LED_RELAY_BACKLIGHT, 1);
+   digitalWrite(LED_RELAY_FORELIGHT, 0);
 }
-
