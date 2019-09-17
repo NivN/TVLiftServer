@@ -3,8 +3,8 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 
-char ssid[100] = "****";
-char password[100] = "****";
+char ssid[100] = "crocodil";
+char password[100] = "*";
 
 ESP8266WebServer server(80);
 
@@ -15,30 +15,35 @@ const int LED_RELAY_BACKLIGHT = D2;
 const int LED_RELAY_FORELIGHT = D3;
 const int TV_UP_WRITE = 1;
 const int TV_DOWN_WRITE = 0;
+const int RELAY_OFF = 1;
+const int RELAY_ON = 0;
 
 int ENGINE_WORK_TIME_MS = 1000 * 10; // 10 seconds default
+
+int g_ForeLightStatus = RELAY_ON;
+int g_BackLightStatus = RELAY_OFF;
 
 void handleRoot() {
   server.send(200, "text/plain", "hello from esp8266!");
 }
 
 void handleTvUp() {
-  digitalWrite(LED_RELAY_BACKLIGHT, 1);
+  digitalWrite(LED_RELAY_FORELIGHT, RELAY_OFF);
 
-  digitalWrite(LED_RELAY_BACKLIGHT, 0);
+  digitalWrite(LED_RELAY_BACKLIGHT, RELAY_ON);
   changeTV(TV_UP_WRITE);
   server.send(200, "text/plain", "up");
   powerEngine();
   
   delay(5000);
-  digitalWrite(LED_RELAY_BACKLIGHT, 1);
+  digitalWrite(LED_RELAY_BACKLIGHT, RELAY_OFF);
 }
 
 void handleTvDown() {
   changeTV(TV_DOWN_WRITE);
   server.send(200, "text/plain", "down");
   powerEngine();
-  digitalWrite(LED_RELAY_BACKLIGHT, 0);
+  digitalWrite(LED_RELAY_FORELIGHT, RELAY_ON);
 }
 
 void changeTV(int direction) {
@@ -47,14 +52,29 @@ void changeTV(int direction) {
 }
 
 void powerEngine(){
-    digitalWrite(ENGINE_CUT_OFF_RELAY,0);
+    digitalWrite(ENGINE_CUT_OFF_RELAY,RELAY_ON);
     delay(ENGINE_WORK_TIME_MS);
-    digitalWrite(ENGINE_CUT_OFF_RELAY,1);
+    digitalWrite(ENGINE_CUT_OFF_RELAY,RELAY_OFF);
 }
-void handleLights() {
-  String action = server.arg(0);
-}
+void foreLight() {
+  if (g_ForeLightStatus == RELAY_ON){
+    g_ForeLightStatus = RELAY_OFF;
+  } else {
+    g_ForeLightStatus = RELAY_ON;
+  }
+  digitalWrite(LED_RELAY_FORELIGHT, g_ForeLightStatus);
 
+  server.send(200, "text/plain", "");
+}
+void backLight() {
+  if (g_BackLightStatus == RELAY_ON){
+    g_BackLightStatus = RELAY_OFF;
+  } else {
+    g_BackLightStatus = RELAY_ON;
+  }
+  digitalWrite(LED_RELAY_BACKLIGHT, g_BackLightStatus);
+  server.send(200, "text/plain", "");
+}
 void setEngineWorkTime(){
     String timeStr = server.arg(0);
     if (timeStr.toInt() > 0){
@@ -68,6 +88,7 @@ void handleNotFound(){
 }
 
 void changeWifiPass(){
+  server.send(200, "text/plain", "server will try to connect to new wifi");
   server.arg(0).toCharArray(ssid,100);
   server.arg(1).toCharArray(password,100);
   setup();
@@ -104,7 +125,8 @@ void setup(void){
   server.on("/", handleRoot);
   server.on("/tvUp", handleTvUp);
   server.on("/tvDown", handleTvDown);
-  server.on("/light", handleLights);
+  server.on("/foreLight", foreLight);
+  server.on("/backLight", backLight);
   server.on("/setEngineWorkTime", setEngineWorkTime);
   server.on("/changeWifiPass", setEngineWorkTime);
 
@@ -124,9 +146,9 @@ void setRelays(){
    pinMode(LED_RELAY_BACKLIGHT, OUTPUT);
    pinMode(LED_RELAY_FORELIGHT, OUTPUT);
     
-   digitalWrite(ENGINE_RELAY_1, 1);
-   digitalWrite(ENGINE_RELAY_2, 1);
-   digitalWrite(ENGINE_CUT_OFF_RELAY, 1);
-   digitalWrite(LED_RELAY_BACKLIGHT, 1);
-   digitalWrite(LED_RELAY_FORELIGHT, 0);
+   digitalWrite(ENGINE_RELAY_1, RELAY_OFF);
+   digitalWrite(ENGINE_RELAY_2, RELAY_OFF);
+   digitalWrite(ENGINE_CUT_OFF_RELAY, RELAY_OFF);
+   digitalWrite(LED_RELAY_BACKLIGHT, RELAY_OFF);
+   digitalWrite(LED_RELAY_FORELIGHT, RELAY_ON);
 }
